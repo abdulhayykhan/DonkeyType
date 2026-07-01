@@ -1,0 +1,6 @@
+{
+  "name": "DonkeyType",
+  "description": "A high-fidelity minimalist typing test clone of MonkeyType featuring customized themes, typing modes, historical charts, audio feedback, and beautiful statistics tracking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
