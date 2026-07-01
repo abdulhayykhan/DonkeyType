@@ -31,8 +31,7 @@ DonkeyType functions as a client-side Single Page Application (SPA) designed to 
 
 | Service | URL |
 |---------|-----|
-| Production Web App (Vercel Ready) | [https://ais-pre-aygc3wiyto2ekvj5bztcnq-745066554425.asia-southeast1.run.app](https://ais-pre-aygc3wiyto2ekvj5bztcnq-745066554425.asia-southeast1.run.app) |
-| Development Server | [https://ais-dev-aygc3wiyto2ekvj5bztcnq-745066554425.asia-southeast1.run.app](https://ais-dev-aygc3wiyto2ekvj5bztcnq-745066554425.asia-southeast1.run.app) |
+| Production Web App (Vercel Ready) | [https://donkey-type-ahk.vercel.app/](https://donkey-type-ahk.vercel.app/) |
 
 ---
 
