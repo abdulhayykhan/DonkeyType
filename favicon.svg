@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#E2B714;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#B38F00;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <!-- Rounded square keycap background -->
+  <rect x="32" y="32" width="448" height="448" rx="112" fill="#1e1e24" stroke="#e2b714" stroke-width="20" />
+  <!-- Keyboard Key Top Inner Border -->
+  <rect x="64" y="64" width="384" height="352" rx="80" fill="#2c2c35" opacity="0.5" />
+  
+  <!-- Stylized donkey head ears peaking up -->
+  <path d="M 160 360 
+           L 160 220 
+           C 160 170, 200 130, 250 130 
+           C 300 130, 340 170, 340 220 
+           L 340 360 
+           C 340 380, 320 400, 300 400 
+           L 200 400 
+           C 180 400, 160 380, 160 360 Z" fill="url(#grad)" />
+  <!-- Donkey ears -->
+  <path d="M 190 140 
+           L 150 40 
+           C 140 20, 160 10, 180 30 
+           L 225 125 Z" fill="url(#grad)" />
+  <path d="M 310 140 
+           L 350 40 
+           C 360 20, 340 10, 320 30 
+           L 275 125 Z" fill="url(#grad)" />
+  <!-- Eyes -->
+  <circle cx="215" cy="230" r="15" fill="#1e1e24" />
+  <circle cx="285" cy="230" r="15" fill="#1e1e24" />
+  <!-- Snout / Nose -->
+  <ellipse cx="250" cy="310" rx="45" ry="30" fill="#1e1e24" />
+  <!-- Nostrils -->
+  <circle cx="235" cy="305" r="6" fill="#e2b714" />
+  <circle cx="265" cy="305" r="6" fill="#e2b714" />
+</svg>
