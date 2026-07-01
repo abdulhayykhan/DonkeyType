@@ -82,7 +82,7 @@ DonkeyType functions as a client-side Single Page Application (SPA) designed to 
 │   │  ├─ TypingPanel.tsx (Caret engine, word selector, sound engine)│   │
 │   │  ├─ ResultPanel.tsx (Performance metrics, Twitter/Copy social) │   │
 │   │  ├─ LeaderboardPanel.tsx (Ranked user scores, filter panels)   │   │
-│   │  ├─ StatsPanel.tsx (Overall history charts, streaks, stats)     │   │
+│   │  ├─ StatsPanel.tsx (Overall history charts, streaks, stats)    │   │
 │   │  └─ ThemeSelector.tsx (Real-time custom palette injection)     │   │
 │   └────────────────────────────────────────────────────────────────┘   │
 └────────────────────────────────────────────────────────────────────────┘
