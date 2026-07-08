@@ -10,6 +10,7 @@ import LeaderboardPanel from './components/LeaderboardPanel';
 import ThemeSelector from './components/ThemeSelector';
 import { Keyboard, ArrowRight } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
+import { db, doc, getDoc, setDoc, serverTimestamp } from './utils/firebase';
 
 export default function App() {
   // Navigation states
@@ -30,8 +31,14 @@ export default function App() {
   // Daily Streak
   const [streak, setStreak] = useState<number>(0);
 
+  // Username/Nickname state
+  const [username, setUsername] = useState<string>(() => {
+    return localStorage.getItem('donkeytype-username') || '';
+  });
+
   // Focus Mode active tracking
   const [isFocusActive, setIsFocusActive] = useState<boolean>(false);
+
 
   // Load configuration and data from localStorage on Mount
   useEffect(() => {
@@ -59,7 +66,13 @@ export default function App() {
     }
 
     // 4. Daily Streak calculation
-    calculateStreak();
+    const currentStreak = calculateStreak();
+
+    // 5. Cloud sync if nickname exists
+    const savedUser = localStorage.getItem('donkeytype-username');
+    if (savedUser) {
+      syncStreakWithCloud(savedUser, currentStreak);
+    }
   }, []);
 
   // Set CSS variables dynamically on Document Root when Theme changes
@@ -89,14 +102,93 @@ export default function App() {
     handleSoundChange(profiles[nextIndex]);
   };
 
+  // Cloud Sync for Streaks
+  const syncStreakWithCloud = async (user: string, currentLocalStreak: number) => {
+    if (!user.trim()) return;
+    const sanitizedUsername = user.trim().toLowerCase();
+    
+    try {
+      const userDocRef = doc(db, 'users', sanitizedUsername);
+      const userDocSnap = await getDoc(userDocRef);
+      const todayStr = new Date().toDateString();
+
+      if (userDocSnap.exists()) {
+        const cloudData = userDocSnap.data();
+        const cloudStreak = cloudData.streak || 0;
+        const cloudLastActive = cloudData.lastActiveDate || '';
+
+        let mergedStreak = currentLocalStreak;
+        let mergedLastActive = localStorage.getItem('donkeytype_last_active_date') || '';
+
+        if (cloudStreak > currentLocalStreak) {
+          mergedStreak = cloudStreak;
+          mergedLastActive = cloudLastActive;
+        } else if (currentLocalStreak > cloudStreak) {
+          mergedStreak = currentLocalStreak;
+          mergedLastActive = localStorage.getItem('donkeytype_last_active_date') || todayStr;
+        }
+
+        if (mergedLastActive) {
+          const lastActiveDate = new Date(mergedLastActive);
+          const today = new Date();
+          lastActiveDate.setHours(0, 0, 0, 0);
+          today.setHours(0, 0, 0, 0);
+          const diffDays = Math.round((today.getTime() - lastActiveDate.getTime()) / (1000 * 60 * 60 * 24));
+          
+          if (diffDays > 1) {
+            mergedStreak = 0;
+          }
+        }
+
+        setStreak(mergedStreak);
+        localStorage.setItem('donkeytype_streak', mergedStreak.toString());
+        if (mergedLastActive) {
+          localStorage.setItem('donkeytype_last_active_date', mergedLastActive);
+        }
+
+        await setDoc(userDocRef, {
+          streak: mergedStreak,
+          lastActiveDate: mergedLastActive || todayStr,
+          username: user.trim(),
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+
+      } else {
+        const todayStr = new Date().toDateString();
+        const lastActive = localStorage.getItem('donkeytype_last_active_date') || todayStr;
+        await setDoc(userDocRef, {
+          streak: currentLocalStreak,
+          lastActiveDate: lastActive,
+          username: user.trim(),
+          updatedAt: serverTimestamp()
+        });
+      }
+    } catch (e) {
+      console.error('Failed to sync streak with Firestore:', e);
+    }
+  };
+
+  const handleSetUsername = async (newName: string) => {
+    const trimmed = newName.trim();
+    setUsername(trimmed);
+    if (trimmed) {
+      localStorage.setItem('donkeytype-username', trimmed);
+      const localStreakStr = localStorage.getItem('donkeytype_streak') || '0';
+      const localStreak = parseInt(localStreakStr, 10);
+      await syncStreakWithCloud(trimmed, localStreak);
+    } else {
+      localStorage.removeItem('donkeytype-username');
+    }
+  };
+
   // Streak logic
-  const calculateStreak = () => {
+  const calculateStreak = (): number => {
     const savedStreak = localStorage.getItem('donkeytype_streak');
     const lastActiveStr = localStorage.getItem('donkeytype_last_active_date');
     
     if (!savedStreak || !lastActiveStr) {
       setStreak(0);
-      return;
+      return 0;
     }
 
     const currentStreakVal = parseInt(savedStreak, 10);
@@ -108,22 +200,25 @@ export default function App() {
     today.setHours(0, 0, 0, 0);
 
     const diffTime = Math.abs(today.getTime() - lastActiveDate.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
     if (diffDays === 0) {
       // Already active today
       setStreak(currentStreakVal);
+      return currentStreakVal;
     } else if (diffDays === 1) {
       // Active yesterday, maintain streak!
       setStreak(currentStreakVal);
+      return currentStreakVal;
     } else {
       // Streak broken
       setStreak(0);
       localStorage.setItem('donkeytype_streak', '0');
+      return 0;
     }
   };
 
-  const incrementStreak = () => {
+  const incrementStreak = async () => {
     const todayStr = new Date().toDateString();
     const lastActiveStr = localStorage.getItem('donkeytype_last_active_date');
     const savedStreak = localStorage.getItem('donkeytype_streak') || '0';
@@ -142,7 +237,7 @@ export default function App() {
       lastActiveDate.setHours(0,0,0,0);
       today.setHours(0,0,0,0);
       const diffTime = Math.abs(today.getTime() - lastActiveDate.getTime());
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
       if (diffDays === 1) {
         newStreak = currentStreakVal + 1;
@@ -152,6 +247,10 @@ export default function App() {
     setStreak(newStreak);
     localStorage.setItem('donkeytype_streak', newStreak.toString());
     localStorage.setItem('donkeytype_last_active_date', todayStr);
+
+    if (username) {
+      await syncStreakWithCloud(username, newStreak);
+    }
   };
 
   // Handle a finished typing test
@@ -214,6 +313,8 @@ export default function App() {
             soundProfile={soundProfile}
             onToggleSound={handleToggleSound}
             streak={streak}
+            username={username}
+            onSetUsername={handleSetUsername}
           />
         </div>
 
@@ -235,6 +336,8 @@ export default function App() {
                     chartData={currentResult.chart}
                     onRestart={handleRestartTest}
                     isPersonalBest={currentResult.isPB}
+                    globalUsername={username}
+                    onSetGlobalUsername={handleSetUsername}
                   />
                 ) : (
                   <TypingPanel

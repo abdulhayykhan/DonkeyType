@@ -1,4 +1,5 @@
-import { Keyboard, BarChart2, Info, Volume2, VolumeX, Flame, Trophy } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Keyboard, BarChart2, Info, Volume2, VolumeX, Flame, Trophy, User, Check, LogOut } from 'lucide-react';
 import { SoundProfile } from '../types';
 
 interface HeaderProps {
@@ -7,6 +8,8 @@ interface HeaderProps {
   soundProfile: SoundProfile;
   onToggleSound: () => void;
   streak: number;
+  username: string;
+  onSetUsername: (name: string) => void;
 }
 
 export default function Header({ 
@@ -14,8 +17,25 @@ export default function Header({
   onTabChange, 
   soundProfile, 
   onToggleSound,
-  streak 
+  streak,
+  username,
+  onSetUsername
 }: HeaderProps) {
+  const [isEditingUser, setIsEditingUser] = useState(false);
+  const [tempUser, setTempUser] = useState(username);
+
+  useEffect(() => {
+    setTempUser(username);
+  }, [username]);
+
+  const handleSaveUser = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (tempUser.trim().length > 0 && tempUser.trim().length <= 15) {
+      onSetUsername(tempUser.trim());
+      setIsEditingUser(false);
+    }
+  };
+
   return (
     <header id="app-header" className="flex flex-col sm:flex-row items-center justify-between gap-4 py-6 mb-8 border-b border-sub-theme/10">
       {/* Brand & Logo */}
@@ -126,6 +146,57 @@ export default function Header({
             <span className="hidden xs:inline">about</span>
           </button>
         </nav>
+
+        {/* Username/Profile sync badge */}
+        <div id="header-user-sync" className="flex items-center gap-2">
+          {isEditingUser ? (
+            <form onSubmit={handleSaveUser} className="flex items-center gap-1 bg-sub-theme/5 p-1 rounded-xl border border-main-theme/20 animate-fadeIn">
+              <input
+                type="text"
+                value={tempUser}
+                onChange={(e) => setTempUser(e.target.value.replace(/[^a-zA-Z0-9_-]/g, ''))}
+                placeholder="Nickname..."
+                maxLength={15}
+                className="px-2 py-1 text-xs bg-transparent border-none outline-none text-text-theme font-mono w-20 focus:ring-0"
+                autoFocus
+              />
+              <button type="submit" className="p-1 rounded-lg bg-main-theme/15 text-main-theme hover:bg-main-theme/20 cursor-pointer">
+                <Check className="w-3 h-3" />
+              </button>
+            </form>
+          ) : username ? (
+            <div className="flex items-center gap-1.5 bg-sub-theme/5 px-2.5 py-1.5 rounded-xl border border-sub-theme/10 hover:border-main-theme/20 transition-all duration-200">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" title="Cloud Synced Profile" />
+              <span 
+                onClick={() => setIsEditingUser(true)}
+                className="font-mono text-xs text-text-theme font-semibold cursor-pointer select-none max-w-[80px] sm:max-w-[100px] truncate"
+                title="Click to change your cloud nickname"
+              >
+                {username}
+              </span>
+              <button 
+                onClick={() => {
+                  if (confirm("Disconnect and clear cloud-synced profile? Local stats will remain.")) {
+                    onSetUsername('');
+                  }
+                }}
+                className="text-sub-theme/40 hover:text-red-400 p-0.5 transition-colors cursor-pointer"
+                title="Disconnect profile"
+              >
+                <LogOut className="w-3 h-3" />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setIsEditingUser(true)}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-dashed border-sub-theme/30 text-sub-theme/70 hover:text-main-theme hover:border-main-theme/40 text-xs font-sans font-medium transition-all duration-200 cursor-pointer"
+              title="Sync your typing streak and score globally"
+            >
+              <User className="w-3.5 h-3.5" />
+              <span className="hidden xs:inline text-[11px]">Sync Streak</span>
+            </button>
+          )}
+        </div>
 
         {/* Quick sound switch toggler */}
         <button

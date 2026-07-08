@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'motion/react';
 import { HistoryItem, ChartDatapoint } from '../types';
 import { RefreshCw, RotateCcw, Share2, Award, Sparkles, CheckCircle2, AlertTriangle, HelpCircle, Trophy, Send, Check, Twitter, Copy } from 'lucide-react';
 import { db, collection, addDoc, serverTimestamp } from '../utils/firebase';
@@ -8,26 +9,72 @@ interface ResultPanelProps {
   chartData: ChartDatapoint[];
   onRestart: () => void;
   isPersonalBest: boolean;
+  globalUsername: string;
+  onSetGlobalUsername: (name: string) => void;
 }
 
 export default function ResultPanel({ 
   historyItem, 
   chartData, 
   onRestart,
-  isPersonalBest 
+  isPersonalBest,
+  globalUsername,
+  onSetGlobalUsername
 }: ResultPanelProps) {
   const [hoveredPoint, setHoveredPoint] = useState<ChartDatapoint | null>(null);
   const [tooltipX, setTooltipX] = useState<number>(0);
   const [tooltipY, setTooltipY] = useState<number>(0);
   const [copied, setCopied] = useState<boolean>(false);
 
+  // Calculate consistency based on standard deviation of WPM values
+  const consistency = React.useMemo(() => {
+    if (!chartData || chartData.length === 0) return 100;
+    const wpms = chartData.map(d => d.wpm);
+    const n = wpms.length;
+    if (n <= 1) return 100;
+    
+    const mean = wpms.reduce((a, b) => a + b, 0) / n;
+    if (mean === 0) return 0;
+    
+    const variance = wpms.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / n;
+    const stdDev = Math.sqrt(variance);
+    
+    const cv = stdDev / mean;
+    const score = Math.max(0, Math.min(100, Math.round((1 - cv) * 100)));
+    return score;
+  }, [chartData]);
+
+  // Framer motion variants for staggered child cards entrance
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.08,
+        delayChildren: 0.1,
+      },
+    },
+  };
+
+  const cardVariants = {
+    hidden: { opacity: 0, y: 25 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        type: 'spring',
+        stiffness: 90,
+        damping: 14,
+      },
+    },
+  };
+
   // Leaderboard states
   const [showSubmitForm, setShowSubmitForm] = useState<boolean>(false);
-  const [username, setUsername] = useState<string>(() => {
-    return localStorage.getItem('donkeytype-username') || '';
-  });
+  const [username, setUsername] = useState<string>(globalUsername || localStorage.getItem('donkeytype-username') || '');
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [submitted, setSubmitted] = useState<boolean>(false);
+
 
   // Handle score submission
   const handleSubmitScore = async (e: React.FormEvent) => {
@@ -40,6 +87,7 @@ export default function ResultPanel({
     try {
       // Save username to localStorage for subsequent sessions
       localStorage.setItem('donkeytype-username', trimmed);
+      onSetGlobalUsername(trimmed);
 
       // Save score to Firestore
       const newEntry = {
@@ -233,13 +281,22 @@ export default function ResultPanel({
       )}
 
       {/* Primary Metrics Grid */}
-      <div id="metrics-grid" className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <motion.div 
+        id="metrics-grid" 
+        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
         {/* WPM Card */}
-        <div className={`bg-sub-theme/5 border rounded-2xl p-6 flex flex-col justify-between h-32 relative group transition-all duration-300 ${
-          wpmGoal > 0 && historyItem.wpm >= wpmGoal
-            ? 'border-emerald-500/30 hover:border-emerald-500/50'
-            : 'border-sub-theme/10 hover:border-main-theme/20'
-        }`}>
+        <motion.div 
+          variants={cardVariants}
+          className={`bg-sub-theme/5 border rounded-2xl p-6 flex flex-col justify-between h-32 relative group transition-all duration-300 ${
+            wpmGoal > 0 && historyItem.wpm >= wpmGoal
+              ? 'border-emerald-500/30 hover:border-emerald-500/50'
+              : 'border-sub-theme/10 hover:border-main-theme/20'
+          }`}
+        >
           <div className="flex justify-between items-center w-full">
             <span className="font-mono text-xs text-sub-theme tracking-wider">wpm</span>
             {wpmGoal > 0 && (
@@ -256,28 +313,49 @@ export default function ResultPanel({
             {historyItem.wpm}
           </span>
           <span className="font-mono text-[10px] text-sub-theme">net typed speed</span>
-        </div>
+        </motion.div>
 
         {/* Accuracy Card */}
-        <div className="bg-sub-theme/5 border border-sub-theme/10 rounded-2xl p-6 flex flex-col justify-between h-32 relative group hover:border-main-theme/20 transition-all duration-300">
+        <motion.div 
+          variants={cardVariants}
+          className="bg-sub-theme/5 border border-sub-theme/10 rounded-2xl p-6 flex flex-col justify-between h-32 relative group hover:border-main-theme/20 transition-all duration-300"
+        >
           <span className="font-mono text-xs text-sub-theme tracking-wider">accuracy</span>
           <span className="font-sans text-5xl font-extrabold text-main-theme tracking-tight">
             {historyItem.accuracy}%
           </span>
           <span className="font-mono text-[10px] text-sub-theme">correct characters</span>
-        </div>
+        </motion.div>
+
+        {/* Consistency Card */}
+        <motion.div 
+          variants={cardVariants}
+          className="bg-sub-theme/5 border border-sub-theme/10 rounded-2xl p-6 flex flex-col justify-between h-32 relative group hover:border-main-theme/20 transition-all duration-300"
+        >
+          <span className="font-mono text-xs text-sub-theme tracking-wider">consistency</span>
+          <span className="font-sans text-5xl font-extrabold text-main-theme tracking-tight">
+            {consistency}%
+          </span>
+          <span className="font-mono text-[10px] text-sub-theme">wpm stability score</span>
+        </motion.div>
 
         {/* Raw WPM Card */}
-        <div className="bg-sub-theme/5 border border-sub-theme/10 rounded-2xl p-6 flex flex-col justify-between h-32 relative group hover:border-main-theme/20 transition-all duration-300">
+        <motion.div 
+          variants={cardVariants}
+          className="bg-sub-theme/5 border border-sub-theme/10 rounded-2xl p-6 flex flex-col justify-between h-32 relative group hover:border-main-theme/20 transition-all duration-300"
+        >
           <span className="font-mono text-xs text-sub-theme tracking-wider">raw wpm</span>
           <span className="font-sans text-4xl font-extrabold text-sub-theme tracking-tight">
             {historyItem.rawWpm}
           </span>
           <span className="font-mono text-[10px] text-sub-theme">including errors</span>
-        </div>
+        </motion.div>
 
         {/* Details Card */}
-        <div className="bg-sub-theme/5 border border-sub-theme/10 rounded-2xl p-6 flex flex-col justify-between h-32">
+        <motion.div 
+          variants={cardVariants}
+          className="bg-sub-theme/5 border border-sub-theme/10 rounded-2xl p-6 flex flex-col justify-between h-32"
+        >
           <span className="font-mono text-xs text-sub-theme tracking-wider">test details</span>
           <div className="space-y-1">
             <div className="flex justify-between font-mono text-xs">
@@ -294,8 +372,8 @@ export default function ResultPanel({
             </div>
           </div>
           <span className="font-mono text-[10px] text-sub-theme">session setup</span>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
 
       {/* SVG Timeline Chart */}
       <div id="chart-section" className="bg-sub-theme/5 border border-sub-theme/10 rounded-2xl p-6 relative">

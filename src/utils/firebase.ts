@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, addDoc, getDocs, query, orderBy, limit, serverTimestamp } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, getDocs, query, orderBy, limit, serverTimestamp, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import config from '../../firebase-applet-config.json';
 
 const firebaseConfig = {
@@ -16,4 +16,5 @@ const app = initializeApp(firebaseConfig);
 // Initialize Firestore with the specific database ID from the config
 export const db = getFirestore(app, config.firestoreDatabaseId || '(default)');
 
-export { collection, addDoc, getDocs, query, orderBy, limit, serverTimestamp };
+export { collection, addDoc, getDocs, query, orderBy, limit, serverTimestamp, doc, getDoc, setDoc, updateDoc };
+
