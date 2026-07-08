@@ -4,6 +4,7 @@ import {
   Clock, Type, Quote, Activity, ShieldAlert
 } from 'lucide-react';
 import { TypingMode } from '../types';
+import { db, collection, getDocs, query, orderBy, limit } from '../utils/firebase';
 
 export interface LeaderboardEntry {
   id: string;
@@ -30,36 +31,57 @@ export default function LeaderboardPanel() {
     fetchScores();
   }, []);
 
-  const fetchScores = (isRefresh = false) => {
+  const fetchScores = async (isRefresh = false) => {
     if (isRefresh) {
       setRefreshing(true);
     } else {
       setLoading(true);
     }
 
-    // Simulate community fetch delay
-    setTimeout(() => {
+    try {
+      // Fetch top 100 scores from Firestore ordered by speed then accuracy
+      const q = query(
+        collection(db, 'leaderboard'),
+        orderBy('wpm', 'desc'),
+        orderBy('accuracy', 'desc'),
+        limit(100)
+      );
+
+      const querySnapshot = await getDocs(q);
+      const fetchedEntries: LeaderboardEntry[] = [];
+      const localUsername = localStorage.getItem('donkeytype-username') || '';
+
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        fetchedEntries.push({
+          id: doc.id,
+          username: data.username || 'Anonymous',
+          wpm: data.wpm || 0,
+          accuracy: data.accuracy || 0,
+          mode: data.mode || 'time',
+          difficulty: data.difficulty || 'normal',
+          date: data.date || '',
+          isUser: localUsername && data.username === localUsername,
+        });
+      });
+
+      setEntries(fetchedEntries);
+      localStorage.setItem('donkeytype-leaderboard', JSON.stringify(fetchedEntries));
+    } catch (error) {
+      console.error("Error fetching Firestore leaderboard:", error);
+      // Fallback to local storage cache if database is currently inaccessible
       const saved = localStorage.getItem('donkeytype-leaderboard');
       if (saved) {
         try {
-          const parsed = JSON.parse(saved);
-          // Filter out any existing mock entries from local storage
-          const nonMock = Array.isArray(parsed) 
-            ? parsed.filter((e: any) => e && e.id && !e.id.toString().startsWith('mock-'))
-            : [];
-          setEntries(nonMock);
-          localStorage.setItem('donkeytype-leaderboard', JSON.stringify(nonMock));
+          setEntries(JSON.parse(saved));
         } catch (e) {
           setEntries([]);
-          localStorage.setItem('donkeytype-leaderboard', JSON.stringify([]));
         }
-      } else {
-        localStorage.setItem('donkeytype-leaderboard', JSON.stringify([]));
-        setEntries([]);
       }
+    } finally {
       setLoading(false);
       setRefreshing(false);
-    }, 600);
+    }
   };
 
   // Filter and sort entries
@@ -93,7 +115,7 @@ export default function LeaderboardPanel() {
             Global Community Leaderboard
           </h2>
           <p className="font-mono text-xs text-sub-theme">
-            Simulated real-time community scores and personal submissions.
+            Real-time community scores synchronized across all devices.
           </p>
         </div>
 
@@ -301,7 +323,7 @@ export default function LeaderboardPanel() {
         <div className="space-y-1">
           <h4 className="font-sans font-bold text-xs text-text-theme">How to join the board?</h4>
           <p className="font-sans text-[11px] text-sub-theme leading-relaxed">
-            Whenever you finish a typing test, you can submit your score to this local leaderboard using the 
+            Whenever you finish a typing test, you can submit your score to this global cloud leaderboard using the 
             <strong> "Submit Score"</strong> action. Challenge yourself to conquer the ranks!
           </p>
         </div>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { HistoryItem, ChartDatapoint } from '../types';
 import { RefreshCw, RotateCcw, Share2, Award, Sparkles, CheckCircle2, AlertTriangle, HelpCircle, Trophy, Send, Check, Twitter, Copy } from 'lucide-react';
+import { db, collection, addDoc, serverTimestamp } from '../utils/firebase';
 
 interface ResultPanelProps {
   historyItem: HistoryItem;
@@ -29,49 +30,56 @@ export default function ResultPanel({
   const [submitted, setSubmitted] = useState<boolean>(false);
 
   // Handle score submission
-  const handleSubmitScore = (e: React.FormEvent) => {
+  const handleSubmitScore = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = username.trim();
     if (!trimmed) return;
 
     setSubmitting(true);
     
-    // Simulate server write delay
-    setTimeout(() => {
-      // Save username to localStorage
+    try {
+      // Save username to localStorage for subsequent sessions
       localStorage.setItem('donkeytype-username', trimmed);
 
-      const defaultLeaderboard: any[] = [];
-
-      const saved = localStorage.getItem('donkeytype-leaderboard');
-      let currentEntries = saved ? JSON.parse(saved) : defaultLeaderboard;
-      
-      // Filter out any existing mock entries
-      if (Array.isArray(currentEntries)) {
-        currentEntries = currentEntries.filter((e: any) => e && e.id && !e.id.toString().startsWith('mock-'));
-      } else {
-        currentEntries = [];
-      }
-
+      // Save score to Firestore
       const newEntry = {
-        id: `user-${Date.now()}`,
         username: trimmed,
         wpm: historyItem.wpm,
         accuracy: historyItem.accuracy,
         mode: historyItem.mode,
         difficulty: historyItem.difficulty,
         date: new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),
-        isUser: true,
+        createdAt: serverTimestamp(),
+        timestamp: Date.now()
       };
 
-      currentEntries.push(newEntry);
+      await addDoc(collection(db, 'leaderboard'), newEntry);
+
+      // Save local backup reference for the current leaderboard tab (will merge or refresh when opened)
+      const defaultLeaderboard: any[] = [];
+      const saved = localStorage.getItem('donkeytype-leaderboard');
+      let currentEntries = saved ? JSON.parse(saved) : defaultLeaderboard;
       
-      // Save back
+      if (Array.isArray(currentEntries)) {
+        currentEntries = currentEntries.filter((e: any) => e && e.id && !e.id.toString().startsWith('mock-'));
+      } else {
+        currentEntries = [];
+      }
+
+      currentEntries.push({
+        ...newEntry,
+        id: `user-${Date.now()}`,
+        isUser: true,
+      });
       localStorage.setItem('donkeytype-leaderboard', JSON.stringify(currentEntries));
 
-      setSubmitting(false);
       setSubmitted(true);
-    }, 800);
+    } catch (err) {
+      console.error("Error submitting score to Firestore:", err);
+      alert("Failed to submit score to the cloud. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   // Read target goal from localStorage
