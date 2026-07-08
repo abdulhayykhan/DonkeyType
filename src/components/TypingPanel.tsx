@@ -324,6 +324,7 @@ export default function TypingPanel({
     let incorrectChars = 0;
     let extraChars = 0;
     let missedChars = 0;
+    const errorChars: Record<string, number> = {};
 
     // Traverse all completed words
     wordsList.slice(0, currentWordIndex + 1).forEach((originalWord, index) => {
@@ -337,15 +338,23 @@ export default function TypingPanel({
         if (typedChar === undefined) {
           // Missed character
           missedChars++;
+          if (originalChar) {
+            const charKey = originalChar.toLowerCase();
+            errorChars[charKey] = (errorChars[charKey] || 0) + 1;
+          }
         } else if (originalChar === undefined) {
           // Extra characters typed
           extraChars++;
+          const charKey = typedChar.toLowerCase();
+          errorChars[charKey] = (errorChars[charKey] || 0) + 1;
         } else if (typedChar === originalChar) {
           // Correct character
           correctChars++;
         } else {
           // Incorrect character
           incorrectChars++;
+          const charKey = originalChar.toLowerCase();
+          errorChars[charKey] = (errorChars[charKey] || 0) + 1;
         }
       }
     });
@@ -388,7 +397,8 @@ export default function TypingPanel({
         incorrect: incorrectChars,
         extra: extraChars,
         missed: missedChars
-      }
+      },
+      errorChars: errorChars
     };
 
     onTestComplete(historyRecord, compiledChart);

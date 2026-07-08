@@ -33,6 +33,7 @@ export interface HistoryItem {
     extra: number;
     missed: number;
   };
+  errorChars?: Record<string, number>;
 }
 
 export interface ChartDatapoint {

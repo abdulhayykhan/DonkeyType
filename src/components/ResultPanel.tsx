@@ -579,6 +579,118 @@ export default function ResultPanel({
         </div>
       </div>
 
+      {/* Key Struggle Heatmap Visualizer */}
+      <div id="key-heatmap-section" className="bg-sub-theme/5 border border-sub-theme/10 rounded-2xl p-6 space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h4 className="font-sans font-bold text-sm text-text-theme flex items-center gap-1.5">
+              <Sparkles className="w-4 h-4 text-main-theme animate-pulse" />
+              Keyboard Struggle Heatmap
+            </h4>
+            <p className="font-mono text-[10px] text-sub-theme">
+              Identifies which keys caused the most errors or misses in this session.
+            </p>
+          </div>
+          <div className="flex items-center gap-3 text-[10px] font-mono text-sub-theme">
+            <span>Perfect</span>
+            <div className="flex items-center gap-1 bg-sub-theme/5 p-1 rounded-md border border-sub-theme/10">
+              <span className="w-2.5 h-2.5 rounded-sm bg-sub-theme/10 border border-sub-theme/15" />
+              <span className="w-2.5 h-2.5 rounded-sm bg-red-500/20 border border-red-500/30" />
+              <span className="w-2.5 h-2.5 rounded-sm bg-red-500/50 border border-red-500/60" />
+              <span className="w-2.5 h-2.5 rounded-sm bg-red-500 border border-red-600" />
+            </div>
+            <span className="text-red-400">High Errors</span>
+          </div>
+        </div>
+
+        {(() => {
+          const keyboardRows = [
+            ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
+            ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
+            ['z', 'x', 'c', 'v', 'b', 'n', 'm']
+          ];
+          const errorMap = historyItem.errorChars || {};
+          const struggledKeys = Object.entries(errorMap)
+            .filter(([key, count]) => count > 0 && key.length === 1 && key !== ' ')
+            .sort((a, b) => b[1] - a[1]);
+
+          return struggledKeys.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+              {/* Visual Keyboard Grid */}
+              <div className="md:col-span-2 flex flex-col gap-1.5 items-center bg-black/10 dark:bg-black/25 p-4 rounded-xl border border-sub-theme/5">
+                {keyboardRows.map((row, rowIndex) => (
+                  <div key={rowIndex} className="flex gap-1 justify-center w-full">
+                    {/* Row indentation offset */}
+                    {rowIndex === 1 && <div className="w-1.5 sm:w-3" />}
+                    {rowIndex === 2 && <div className="w-3 sm:w-6" />}
+                    
+                    {row.map((key) => {
+                      const errorCount = errorMap[key] || 0;
+                      const maxErrorCount = Math.max(...Object.values(errorMap).filter((_, idx) => Object.keys(errorMap)[idx] !== ' '), 1);
+                      const intensity = errorCount / maxErrorCount;
+                      
+                      let keyBgClass = "bg-sub-theme/10 text-sub-theme/60 border-sub-theme/5";
+                      if (errorCount > 0) {
+                        if (intensity < 0.35) {
+                          keyBgClass = "bg-red-500/20 text-red-400 border-red-500/30 font-semibold";
+                        } else if (intensity < 0.7) {
+                          keyBgClass = "bg-red-500/50 text-white border-red-500/60 font-semibold";
+                        } else {
+                          keyBgClass = "bg-red-500 text-white border-red-600 font-bold shadow-sm shadow-red-500/20 animate-pulse";
+                        }
+                      }
+
+                      return (
+                        <div
+                          key={key}
+                          title={errorCount > 0 ? `'${key}': ${errorCount} error${errorCount > 1 ? 's' : ''}` : `'${key}': flawless`}
+                          className={`w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center rounded-md border text-xs sm:text-sm font-mono uppercase transition-all duration-200 select-none ${keyBgClass}`}
+                        >
+                          {key}
+                        </div>
+                      );
+                    })}
+                    {rowIndex === 1 && <div className="w-1.5 sm:w-3" />}
+                    {rowIndex === 2 && <div className="w-3 sm:w-6" />}
+                  </div>
+                ))}
+              </div>
+
+              {/* List and Feedback */}
+              <div className="space-y-3">
+                <h5 className="font-mono text-xs font-bold text-text-theme">Top Key Struggles</h5>
+                <div className="space-y-1.5 max-h-32 overflow-y-auto pr-2 scrollbar-thin">
+                  {struggledKeys.slice(0, 5).map(([char, count]) => (
+                    <div key={char} className="flex items-center justify-between font-mono text-xs py-1 px-2.5 rounded-lg bg-sub-theme/5 border border-sub-theme/10">
+                      <span className="flex items-center gap-2">
+                        <span className="w-4.5 h-4.5 flex items-center justify-center rounded bg-red-500/15 border border-red-500/30 text-red-400 uppercase font-bold text-[10px]">
+                          {char}
+                        </span>
+                        <span className="text-sub-theme">character</span>
+                      </span>
+                      <span className="text-red-400 font-semibold">
+                        {count} mistake{count > 1 ? 's' : ''}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <p className="font-sans text-[11px] text-sub-theme leading-relaxed">
+                  Focus on typing the words with these key combinations to increase WPM and correctness. Focus on muscle memory precision over speed.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-6 text-center space-y-2 border border-dashed border-emerald-500/20 rounded-xl bg-emerald-500/5">
+              <Sparkles className="w-8 h-8 text-emerald-400 animate-bounce" />
+              <h5 className="font-sans font-bold text-xs text-emerald-400">100% Perfect Typing Precision!</h5>
+              <p className="font-mono text-[10px] text-sub-theme/80 max-w-sm">
+                Incredible typing session. No keys were incorrect or missed. Your raw speed matches your net speed flawlessly!
+              </p>
+            </div>
+          );
+        })()}
+      </div>
+
       {/* Submit Score Form */}
       {showSubmitForm && (
         <div id="leaderboard-submit-box" className="bg-sub-theme/5 border border-sub-theme/10 rounded-2xl p-5 space-y-4 max-w-md mx-auto animate-fadeIn">
