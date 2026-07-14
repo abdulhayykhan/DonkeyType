@@ -365,6 +365,7 @@ export default function TypingPanel({
     let extraChars = 0;
     let missedChars = 0;
     const errorChars: Record<string, number> = {};
+    const charAttempts: Record<string, number> = {};
 
     // Traverse all completed words
     wordsList.slice(0, currentWordIndex + 1).forEach((originalWord, index) => {
@@ -374,6 +375,15 @@ export default function TypingPanel({
       for (let i = 0; i < Math.max(originalWord.length, typedWord.length); i++) {
         const originalChar = originalWord[i];
         const typedChar = typedWord[i];
+
+        // Track attempts/occurrences of the expected key or extra key
+        if (originalChar) {
+          const charKey = originalChar.toLowerCase();
+          charAttempts[charKey] = (charAttempts[charKey] || 0) + 1;
+        } else if (typedChar) {
+          const charKey = typedChar.toLowerCase();
+          charAttempts[charKey] = (charAttempts[charKey] || 0) + 1;
+        }
 
         if (typedChar === undefined) {
           // Missed character
@@ -401,6 +411,9 @@ export default function TypingPanel({
 
     // Add spaces as correct keys
     correctChars += currentWordIndex;
+    if (currentWordIndex > 0) {
+      charAttempts[' '] = (charAttempts[' '] || 0) + currentWordIndex;
+    }
 
     const totalSubmittedKeys = correctChars + incorrectChars + extraChars;
     const finalAccuracy = totalSubmittedKeys > 0 
@@ -438,7 +451,8 @@ export default function TypingPanel({
         extra: extraChars,
         missed: missedChars
       },
-      errorChars: errorChars
+      errorChars: errorChars,
+      charAttempts: charAttempts
     };
 
     onTestComplete(historyRecord, compiledChart);

@@ -25,6 +25,8 @@ export default function ResultPanel({
   const [tooltipX, setTooltipX] = useState<number>(0);
   const [tooltipY, setTooltipY] = useState<number>(0);
   const [copied, setCopied] = useState<boolean>(false);
+  const [heatmapMetric, setHeatmapMetric] = useState<'rate' | 'count'>('rate');
+  const [hoveredKey, setHoveredKey] = useState<string | null>(null);
 
   // Calculate consistency based on standard deviation of WPM values
   const consistency = React.useMemo(() => {
@@ -581,25 +583,55 @@ export default function ResultPanel({
 
       {/* Key Struggle Heatmap Visualizer */}
       <div id="key-heatmap-section" className="bg-sub-theme/5 border border-sub-theme/10 rounded-2xl p-6 space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h4 className="font-sans font-bold text-sm text-text-theme flex items-center gap-1.5">
               <Sparkles className="w-4 h-4 text-main-theme animate-pulse" />
-              Keyboard Struggle Heatmap
+              Keyboard Performance Heatmap
             </h4>
             <p className="font-mono text-[10px] text-sub-theme">
-              Identifies which keys caused the most errors or misses in this session.
+              Analyze typing precision of individual keys.
             </p>
           </div>
-          <div className="flex items-center gap-3 text-[10px] font-mono text-sub-theme">
-            <span>Perfect</span>
-            <div className="flex items-center gap-1 bg-sub-theme/5 p-1 rounded-md border border-sub-theme/10">
-              <span className="w-2.5 h-2.5 rounded-sm bg-sub-theme/10 border border-sub-theme/15" />
-              <span className="w-2.5 h-2.5 rounded-sm bg-red-500/20 border border-red-500/30" />
-              <span className="w-2.5 h-2.5 rounded-sm bg-red-500/50 border border-red-500/60" />
-              <span className="w-2.5 h-2.5 rounded-sm bg-red-500 border border-red-600" />
+
+          <div className="flex flex-wrap items-center gap-4">
+            {/* Metric Toggle Controls */}
+            <div className="flex bg-sub-theme/5 p-0.5 rounded-lg border border-sub-theme/10 text-[10px] font-mono">
+              <button
+                type="button"
+                onClick={() => setHeatmapMetric('rate')}
+                className={`px-2.5 py-1 rounded-md transition-all duration-150 ${
+                  heatmapMetric === 'rate'
+                    ? 'bg-main-theme text-bg-theme font-bold'
+                    : 'text-sub-theme hover:text-text-theme'
+                }`}
+              >
+                Error Rate (%)
+              </button>
+              <button
+                type="button"
+                onClick={() => setHeatmapMetric('count')}
+                className={`px-2.5 py-1 rounded-md transition-all duration-150 ${
+                  heatmapMetric === 'count'
+                    ? 'bg-main-theme text-bg-theme font-bold'
+                    : 'text-sub-theme hover:text-text-theme'
+                }`}
+              >
+                Error Count
+              </button>
             </div>
-            <span className="text-red-400">High Errors</span>
+
+            {/* Heatmap Legend */}
+            <div className="flex items-center gap-3 text-[10px] font-mono text-sub-theme">
+              <span>Flawless</span>
+              <div className="flex items-center gap-1 bg-sub-theme/5 p-1 rounded-md border border-sub-theme/10">
+                <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500/10 border border-emerald-500/30" title="Typed perfectly" />
+                <span className="w-2.5 h-2.5 rounded-sm bg-red-500/15 border border-red-500/25" title="Low mistakes / rate" />
+                <span className="w-2.5 h-2.5 rounded-sm bg-red-500/45 border border-red-500/50" title="Medium mistakes / rate" />
+                <span className="w-2.5 h-2.5 rounded-sm bg-red-500 border border-red-600 animate-pulse" title="High mistakes / rate" />
+              </div>
+              <span className="text-red-400">High Errors</span>
+            </div>
           </div>
         </div>
 
@@ -609,102 +641,202 @@ export default function ResultPanel({
             ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
             ['z', 'x', 'c', 'v', 'b', 'n', 'm']
           ];
+          
           const errorMap = historyItem.errorChars || {};
+          const attemptsMap = historyItem.charAttempts || {};
+
+          // Compile all keys with data
           const struggledKeys = Object.entries(errorMap)
             .filter(([key, count]) => count > 0 && key.length === 1)
-            .sort((a, b) => b[1] - a[1]);
-          const totalErrors = struggledKeys.reduce((sum, [_, count]) => sum + count, 0);
+            .map(([key, count]) => {
+              const attempts = attemptsMap[key] || 0;
+              const rate = attempts > 0 ? (count / attempts) * 100 : 0;
+              return { char: key, count, attempts, rate };
+            });
+
+          const totalErrors = struggledKeys.reduce((sum, item) => sum + item.count, 0);
+
+          // Sort dynamically based on selected metric
+          if (heatmapMetric === 'rate') {
+            struggledKeys.sort((a, b) => b.rate - a.rate || b.count - a.count);
+          } else {
+            struggledKeys.sort((a, b) => b.count - a.count || b.rate - a.rate);
+          }
+
+          // Helper to get styling classes for a key
+          const getKeyStyle = (key: string) => {
+            const errorCount = errorMap[key] || 0;
+            const attemptsCount = attemptsMap[key] || 0;
+            
+            if (attemptsCount === 0 && errorCount === 0) {
+              return "bg-sub-theme/5 text-sub-theme/40 border-sub-theme/10"; // Not used
+            }
+            
+            if (errorCount === 0) {
+              return "bg-emerald-500/5 text-emerald-400 border-emerald-500/20 font-medium"; // flawless
+            }
+
+            if (heatmapMetric === 'rate') {
+              const rate = (errorCount / attemptsCount) * 100;
+              if (rate < 15) {
+                return "bg-red-500/15 text-red-400 border-red-500/25 font-semibold";
+              } else if (rate < 40) {
+                return "bg-red-500/45 text-red-100 border-red-500/50 font-semibold";
+              } else {
+                return "bg-red-500 text-white border-red-600 font-bold shadow-sm shadow-red-500/25 animate-pulse";
+              }
+            } else {
+              const maxErrorCount = Math.max(...Object.values(errorMap).filter((_, idx) => Object.keys(errorMap)[idx] !== ' '), 1);
+              const intensity = errorCount / maxErrorCount;
+              if (intensity < 0.35) {
+                return "bg-red-500/15 text-red-400 border-red-500/25 font-semibold";
+              } else if (intensity < 0.7) {
+                return "bg-red-500/45 text-red-100 border-red-500/50 font-semibold";
+              } else {
+                return "bg-red-500 text-white border-red-600 font-bold shadow-sm shadow-red-500/25 animate-pulse";
+              }
+            }
+          };
 
           return struggledKeys.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
-              {/* Visual Keyboard Grid */}
-              <div className="md:col-span-2 flex flex-col gap-1.5 items-center bg-black/10 dark:bg-black/25 p-4 rounded-xl border border-sub-theme/5">
-                {keyboardRows.map((row, rowIndex) => (
-                  <div key={rowIndex} className="flex gap-1 justify-center w-full">
-                    {/* Row indentation offset */}
-                    {rowIndex === 1 && <div className="w-1.5 sm:w-3" />}
-                    {rowIndex === 2 && <div className="w-3 sm:w-6" />}
-                    
-                    {row.map((key) => {
-                      const errorCount = errorMap[key] || 0;
-                      const maxErrorCount = Math.max(...Object.values(errorMap).filter((_, idx) => Object.keys(errorMap)[idx] !== ' '), 1);
-                      const intensity = errorCount / maxErrorCount;
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+              {/* Virtual Keyboard Grid & Hover Info */}
+              <div className="lg:col-span-2 space-y-4">
+                <div className="flex flex-col gap-1.5 items-center bg-black/10 dark:bg-black/25 p-4 rounded-xl border border-sub-theme/5 select-none">
+                  {keyboardRows.map((row, rowIndex) => (
+                    <div key={rowIndex} className="flex gap-1 justify-center w-full">
+                      {/* Indentation offsets */}
+                      {rowIndex === 1 && <div className="w-2 sm:w-4" />}
+                      {rowIndex === 2 && <div className="w-4 sm:w-8" />}
                       
-                      let keyBgClass = "bg-sub-theme/10 text-sub-theme/60 border-sub-theme/5";
-                      if (errorCount > 0) {
-                        if (intensity < 0.35) {
-                          keyBgClass = "bg-red-500/20 text-red-400 border-red-500/30 font-semibold";
-                        } else if (intensity < 0.7) {
-                          keyBgClass = "bg-red-500/50 text-white border-red-500/60 font-semibold";
-                        } else {
-                          keyBgClass = "bg-red-500 text-white border-red-600 font-bold shadow-sm shadow-red-500/20 animate-pulse";
-                        }
-                      }
+                      {row.map((key) => {
+                        const styleClass = getKeyStyle(key);
+                        return (
+                          <button
+                            key={key}
+                            type="button"
+                            onMouseEnter={() => setHoveredKey(key)}
+                            onMouseLeave={() => setHoveredKey(null)}
+                            className={`w-6.5 h-6.5 sm:w-8.5 sm:h-8.5 flex items-center justify-center rounded-md border text-xs sm:text-sm font-mono uppercase transition-all duration-150 ${styleClass}`}
+                          >
+                            {key}
+                          </button>
+                        );
+                      })}
+                      {rowIndex === 1 && <div className="w-2 sm:w-4" />}
+                      {rowIndex === 2 && <div className="w-4 sm:w-8" />}
+                    </div>
+                  ))}
 
+                  {/* Keyboard Row 4: Spacebar */}
+                  <div className="flex gap-1 justify-center w-full mt-1.5">
+                    <button
+                      type="button"
+                      onMouseEnter={() => setHoveredKey(' ')}
+                      onMouseLeave={() => setHoveredKey(null)}
+                      className={`h-6.5 sm:h-8.5 w-36 sm:w-48 flex items-center justify-center rounded-md border text-2xs sm:text-xs font-mono uppercase tracking-wider transition-all duration-150 ${getKeyStyle(' ')}`}
+                    >
+                      spacebar
+                    </button>
+                  </div>
+                </div>
+
+                {/* Live Character Hover Report */}
+                <div className="text-center font-mono text-[10px] sm:text-xs text-sub-theme bg-sub-theme/5 border border-sub-theme/10 py-2.5 px-4 rounded-xl min-h-[40px] flex items-center justify-center transition-all duration-150">
+                  {hoveredKey ? (() => {
+                    const errorCount = errorMap[hoveredKey] || 0;
+                    const attemptsCount = attemptsMap[hoveredKey] || 0;
+                    const rate = attemptsCount > 0 ? ((errorCount / attemptsCount) * 100).toFixed(1) : '0.0';
+                    const keyName = hoveredKey === ' ' ? 'Spacebar' : `'${hoveredKey.toUpperCase()}'`;
+                    
+                    if (attemptsCount === 0) {
                       return (
-                        <div
-                          key={key}
-                          title={errorCount > 0 ? `'${key}': ${errorCount} error${errorCount > 1 ? 's' : ''}` : `'${key}': flawless`}
-                          className={`w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center rounded-md border text-xs sm:text-sm font-mono uppercase transition-all duration-200 select-none ${keyBgClass}`}
-                        >
-                          {key}
+                        <span>
+                          Key <strong className="text-text-theme">{keyName}</strong> was not required/typed during this test.
+                        </span>
+                      );
+                    }
+                    if (errorCount === 0) {
+                      return (
+                        <span className="text-emerald-400">
+                          Key <strong className="text-emerald-400 font-bold">{keyName}</strong>: typed flawlessly {attemptsCount} {attemptsCount === 1 ? 'time' : 'times'} (0% error rate).
+                        </span>
+                      );
+                    }
+                    return (
+                      <span>
+                        Key <strong className="text-red-400 font-bold">{keyName}</strong>: <strong className="text-text-theme">{errorCount} error{errorCount > 1 ? 's' : ''}</strong> out of <strong className="text-text-theme">{attemptsCount} attempts</strong> (<strong className="text-red-400 font-bold">{rate}% error rate</strong>).
+                      </span>
+                    );
+                  })() : (
+                    <span className="opacity-75">
+                      Hover over any key above to inspect precise error rates & attempts.
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Character Errors Breakdown List */}
+              <div className="space-y-3 bg-sub-theme/5 p-4 rounded-xl border border-sub-theme/10">
+                <h5 className="font-mono text-xs font-bold text-text-theme flex items-center justify-between">
+                  <span>Struggled Keys Rank</span>
+                  <span className="text-[10px] text-sub-theme font-normal">
+                    {totalErrors} total error{totalErrors !== 1 ? 's' : ''}
+                  </span>
+                </h5>
+
+                {struggledKeys.length > 0 ? (
+                  <div className="space-y-2 max-h-[220px] overflow-y-auto pr-2 scrollbar-thin">
+                    {struggledKeys.map((item) => {
+                      const percentage = totalErrors > 0 ? Math.round((item.count / totalErrors) * 100) : 0;
+                      const isSpace = item.char === ' ';
+                      
+                      return (
+                        <div key={item.char} className="flex flex-col gap-1.5 p-2 rounded-lg bg-black/10 border border-sub-theme/10 hover:border-main-theme/20 transition-all duration-200">
+                          <div className="flex items-center justify-between font-mono text-xs">
+                            <span className="flex items-center gap-2">
+                              {isSpace ? (
+                                <span className="px-1.5 py-0.5 flex items-center justify-center rounded bg-red-500/15 border border-red-500/30 text-red-400 font-bold text-[9px] tracking-wider uppercase">
+                                  space
+                                </span>
+                              ) : (
+                                <span className="w-5 h-5 flex items-center justify-center rounded bg-red-500/15 border border-red-500/30 text-red-400 uppercase font-bold text-[10px]">
+                                  {item.char}
+                                </span>
+                              )}
+                              <span className="text-[10px] text-sub-theme">
+                                {item.count} error{item.count !== 1 ? 's' : ''} / {item.attempts} attempts
+                              </span>
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <span className="text-red-400 font-bold text-xs">
+                                {item.rate.toFixed(0)}%
+                              </span>
+                              <span className="text-[9px] text-sub-theme">rate</span>
+                            </span>
+                          </div>
+
+                          {/* Visual distribution progress bar */}
+                          <div className="w-full h-1 bg-sub-theme/10 rounded-full overflow-hidden relative">
+                            <motion.div 
+                              className="absolute left-0 top-0 h-full bg-red-500/60 rounded-full"
+                              initial={{ width: 0 }}
+                              animate={{ width: `${item.rate}%` }}
+                              transition={{ duration: 0.8, ease: "easeOut" }}
+                            />
+                          </div>
                         </div>
                       );
                     })}
-                    {rowIndex === 1 && <div className="w-1.5 sm:w-3" />}
-                    {rowIndex === 2 && <div className="w-3 sm:w-6" />}
                   </div>
-                ))}
-              </div>
+                ) : (
+                  <div className="text-center py-4 font-mono text-[10px] text-sub-theme">
+                    No keys made errors.
+                  </div>
+                )}
 
-              {/* Most Frequent Character Errors Breakdown */}
-              <div className="space-y-3">
-                <h5 className="font-mono text-xs font-bold text-text-theme flex items-center justify-between">
-                  <span>Frequent Errors</span>
-                  <span className="text-[10px] text-sub-theme font-normal">
-                    {totalErrors} total error{totalErrors > 1 ? 's' : ''}
-                  </span>
-                </h5>
-                <div className="space-y-2 max-h-[170px] overflow-y-auto pr-2 scrollbar-thin">
-                  {struggledKeys.map(([char, count]) => {
-                    const percentage = totalErrors > 0 ? Math.round((count / totalErrors) * 100) : 0;
-                    const isSpace = char === ' ';
-                    
-                    return (
-                      <div key={char} className="flex flex-col gap-1.5 p-2 rounded-xl bg-sub-theme/5 border border-sub-theme/10 hover:border-main-theme/15 transition-all duration-200">
-                        <div className="flex items-center justify-between font-mono text-xs">
-                          <span className="flex items-center gap-2">
-                            {isSpace ? (
-                              <span className="px-1.5 py-0.5 flex items-center justify-center rounded bg-red-500/15 border border-red-500/30 text-red-400 font-bold text-[9px] tracking-wider uppercase">
-                                space
-                              </span>
-                            ) : (
-                              <span className="w-5 h-5 flex items-center justify-center rounded bg-red-500/15 border border-red-500/30 text-red-400 uppercase font-bold text-[10px]">
-                                {char}
-                              </span>
-                            )}
-                            <span className="text-[11px] text-sub-theme font-sans">mistakes</span>
-                          </span>
-                          <span className="flex items-center gap-1.5">
-                            <span className="text-red-400 font-bold">{count}</span>
-                            <span className="text-[10px] text-sub-theme">({percentage}%)</span>
-                          </span>
-                        </div>
-                        {/* Visual distribution progress bar */}
-                        <div className="w-full h-1 bg-sub-theme/10 rounded-full overflow-hidden relative">
-                          <motion.div 
-                            className="absolute left-0 top-0 h-full bg-red-500/60 rounded-full"
-                            initial={{ width: 0 }}
-                            animate={{ width: `${percentage}%` }}
-                            transition={{ duration: 0.8, ease: "easeOut" }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
                 <p className="font-sans text-[10px] text-sub-theme leading-relaxed">
-                  Avoid rushing. Slow down and build proper muscle memory for these highlighted characters to reduce mistakes and boost net speed.
+                  Keys are ranked by <strong>{heatmapMetric === 'rate' ? 'highest error rate (%)' : 'raw mistake count'}</strong>. Focus on precision and rhythm when encountering these keys to raise typing speed.
                 </p>
               </div>
             </div>

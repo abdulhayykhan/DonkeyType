@@ -34,6 +34,7 @@ export interface HistoryItem {
     missed: number;
   };
   errorChars?: Record<string, number>;
+  charAttempts?: Record<string, number>;
 }
 
 export interface ChartDatapoint {
