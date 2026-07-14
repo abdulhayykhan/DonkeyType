@@ -22,11 +22,23 @@ export default function TypingPanel({
   onFocusActiveChange
 }: TypingPanelProps) {
   // Test Configuration States
-  const [difficulty, setDifficulty] = useState<WordDifficulty>('normal');
-  const [mode, setMode] = useState<TypingMode>('time');
-  const [timeOption, setTimeOption] = useState<TimeOption>(30);
-  const [wordOption, setWordOption] = useState<WordOption>(25);
-  const [quoteLength, setQuoteLength] = useState<QuoteLength>('medium');
+  const [difficulty, setDifficulty] = useState<WordDifficulty>(() => {
+    return (localStorage.getItem('donkeytype-difficulty') as WordDifficulty) || 'normal';
+  });
+  const [mode, setMode] = useState<TypingMode>(() => {
+    return (localStorage.getItem('donkeytype-mode') as TypingMode) || 'time';
+  });
+  const [timeOption, setTimeOption] = useState<TimeOption>(() => {
+    const saved = localStorage.getItem('donkeytype-time-option');
+    return saved ? parseInt(saved, 10) as TimeOption : 30;
+  });
+  const [wordOption, setWordOption] = useState<WordOption>(() => {
+    const saved = localStorage.getItem('donkeytype-word-option');
+    return saved ? parseInt(saved, 10) as WordOption : 25;
+  });
+  const [quoteLength, setQuoteLength] = useState<QuoteLength>(() => {
+    return (localStorage.getItem('donkeytype-quote-length') as QuoteLength) || 'medium';
+  });
   const [wpmGoal, setWpmGoal] = useState<number>(() => {
     const saved = localStorage.getItem('donkeytype-wpm-goal');
     return saved ? parseInt(saved, 10) : 0;
@@ -35,6 +47,27 @@ export default function TypingPanel({
     const saved = localStorage.getItem('donkeytype-sound-volume');
     return saved ? parseInt(saved, 10) : 50;
   });
+
+  // Sync configuration changes to localStorage
+  useEffect(() => {
+    localStorage.setItem('donkeytype-difficulty', difficulty);
+  }, [difficulty]);
+
+  useEffect(() => {
+    localStorage.setItem('donkeytype-mode', mode);
+  }, [mode]);
+
+  useEffect(() => {
+    localStorage.setItem('donkeytype-time-option', timeOption.toString());
+  }, [timeOption]);
+
+  useEffect(() => {
+    localStorage.setItem('donkeytype-word-option', wordOption.toString());
+  }, [wordOption]);
+
+  useEffect(() => {
+    localStorage.setItem('donkeytype-quote-length', quoteLength);
+  }, [quoteLength]);
 
   // Engine States
   const [wordsList, setWordsList] = useState<string[]>([]);
@@ -45,7 +78,14 @@ export default function TypingPanel({
   // Status States
   const [isTestRunning, setIsTestRunning] = useState<boolean>(false);
   const [isTestStarted, setIsTestStarted] = useState<boolean>(false);
-  const [timeLeft, setTimeLeft] = useState<number>(30);
+  const [timeLeft, setTimeLeft] = useState<number>(() => {
+    const savedMode = localStorage.getItem('donkeytype-mode') || 'time';
+    if (savedMode === 'time') {
+      const savedTime = localStorage.getItem('donkeytype-time-option');
+      return savedTime ? parseInt(savedTime, 10) : 30;
+    }
+    return 0;
+  });
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
   const [isFocused, setIsFocused] = useState<boolean>(true);
 
