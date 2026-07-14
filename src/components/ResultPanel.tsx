@@ -611,8 +611,9 @@ export default function ResultPanel({
           ];
           const errorMap = historyItem.errorChars || {};
           const struggledKeys = Object.entries(errorMap)
-            .filter(([key, count]) => count > 0 && key.length === 1 && key !== ' ')
+            .filter(([key, count]) => count > 0 && key.length === 1)
             .sort((a, b) => b[1] - a[1]);
+          const totalErrors = struggledKeys.reduce((sum, [_, count]) => sum + count, 0);
 
           return struggledKeys.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
@@ -656,26 +657,54 @@ export default function ResultPanel({
                 ))}
               </div>
 
-              {/* List and Feedback */}
+              {/* Most Frequent Character Errors Breakdown */}
               <div className="space-y-3">
-                <h5 className="font-mono text-xs font-bold text-text-theme">Top Key Struggles</h5>
-                <div className="space-y-1.5 max-h-32 overflow-y-auto pr-2 scrollbar-thin">
-                  {struggledKeys.slice(0, 5).map(([char, count]) => (
-                    <div key={char} className="flex items-center justify-between font-mono text-xs py-1 px-2.5 rounded-lg bg-sub-theme/5 border border-sub-theme/10">
-                      <span className="flex items-center gap-2">
-                        <span className="w-4.5 h-4.5 flex items-center justify-center rounded bg-red-500/15 border border-red-500/30 text-red-400 uppercase font-bold text-[10px]">
-                          {char}
-                        </span>
-                        <span className="text-sub-theme">character</span>
-                      </span>
-                      <span className="text-red-400 font-semibold">
-                        {count} mistake{count > 1 ? 's' : ''}
-                      </span>
-                    </div>
-                  ))}
+                <h5 className="font-mono text-xs font-bold text-text-theme flex items-center justify-between">
+                  <span>Frequent Errors</span>
+                  <span className="text-[10px] text-sub-theme font-normal">
+                    {totalErrors} total error{totalErrors > 1 ? 's' : ''}
+                  </span>
+                </h5>
+                <div className="space-y-2 max-h-[170px] overflow-y-auto pr-2 scrollbar-thin">
+                  {struggledKeys.map(([char, count]) => {
+                    const percentage = totalErrors > 0 ? Math.round((count / totalErrors) * 100) : 0;
+                    const isSpace = char === ' ';
+                    
+                    return (
+                      <div key={char} className="flex flex-col gap-1.5 p-2 rounded-xl bg-sub-theme/5 border border-sub-theme/10 hover:border-main-theme/15 transition-all duration-200">
+                        <div className="flex items-center justify-between font-mono text-xs">
+                          <span className="flex items-center gap-2">
+                            {isSpace ? (
+                              <span className="px-1.5 py-0.5 flex items-center justify-center rounded bg-red-500/15 border border-red-500/30 text-red-400 font-bold text-[9px] tracking-wider uppercase">
+                                space
+                              </span>
+                            ) : (
+                              <span className="w-5 h-5 flex items-center justify-center rounded bg-red-500/15 border border-red-500/30 text-red-400 uppercase font-bold text-[10px]">
+                                {char}
+                              </span>
+                            )}
+                            <span className="text-[11px] text-sub-theme font-sans">mistakes</span>
+                          </span>
+                          <span className="flex items-center gap-1.5">
+                            <span className="text-red-400 font-bold">{count}</span>
+                            <span className="text-[10px] text-sub-theme">({percentage}%)</span>
+                          </span>
+                        </div>
+                        {/* Visual distribution progress bar */}
+                        <div className="w-full h-1 bg-sub-theme/10 rounded-full overflow-hidden relative">
+                          <motion.div 
+                            className="absolute left-0 top-0 h-full bg-red-500/60 rounded-full"
+                            initial={{ width: 0 }}
+                            animate={{ width: `${percentage}%` }}
+                            transition={{ duration: 0.8, ease: "easeOut" }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-                <p className="font-sans text-[11px] text-sub-theme leading-relaxed">
-                  Focus on typing the words with these key combinations to increase WPM and correctness. Focus on muscle memory precision over speed.
+                <p className="font-sans text-[10px] text-sub-theme leading-relaxed">
+                  Avoid rushing. Slow down and build proper muscle memory for these highlighted characters to reduce mistakes and boost net speed.
                 </p>
               </div>
             </div>
